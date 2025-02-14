@@ -1,21 +1,18 @@
 use std::{
-    fmt::Display,
+    fmt,
     fs::{self, ReadDir},
     io,
     path::{Path, PathBuf},
 };
-// use thiserror::Error;
 
 #[derive(Debug)]
 pub enum T2LError {
     IoError(io::Error),
-    SomeError,
 }
-impl Display for T2LError {
+impl fmt::Display for T2LError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             T2LError::IoError(e) => write!(f, "{}", e),
-            T2LError::SomeError => write!(f, "someerror"),
         }
     }
 }
@@ -51,7 +48,7 @@ impl PathSets {
                         old: entry_path,
                         new: audio_path,
                     });
-                } // make tool of getting extension someday.
+                }
                 _ => continue,
             }
         }
