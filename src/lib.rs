@@ -44,16 +44,29 @@ impl PathSets {
         }
         Self { list: tmp_list }
     }
-    pub fn check(&self) -> Result<(String, String), Error> {
+    pub fn check(&self) -> Result<Vec<(String, String)>, Error> {
+        let mut tmp = Vec::<(String, String)>::new();
         for i in &self.list {
             let tmp_line = fs::read_to_string(&i.line)
                 .unwrap()
                 .chars()
                 .take(20)
-                .collect::<String>();
-            // let new_audio_name =
+                .collect::<String>()
+                .trim()
+                .to_string();
+
+            let new_audio_path = i.audio.with_file_name(tmp_line).with_extension("wav");
+
+            tmp.push((
+                i.audio.file_name().unwrap().to_string_lossy().to_string(),
+                new_audio_path
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string(),
+            ));
         }
-        Ok(("".to_string(), "".to_string()))
+        Ok(tmp)
     }
 }
 
@@ -123,6 +136,19 @@ mod tests {
         let a = PathSets::new(cud);
         for i in a.list {
             println!("{:?}", i);
+        }
+    }
+
+    #[test]
+    fn test_check() {
+        ready();
+        let cud = env::current_dir()
+            .unwrap()
+            .join("assets_for_test")
+            .join("assets");
+        let a = PathSets::new(cud).check().unwrap();
+        for i in a {
+            println!("* {:width$} ---> {}", i.0, i.1, width = 20);
         }
     }
 }
