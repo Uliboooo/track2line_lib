@@ -27,7 +27,7 @@ pub struct PathSets {
     list: Vec<PathSet>,
 }
 impl PathSets {
-    pub fn new<P: AsRef<Path>>(dir: P) -> Self {
+    pub fn new<P: AsRef<Path>>(dir: &P) -> Self {
         let path_list = get_file_list(dir).unwrap();
         let mut tmp_list = Vec::<PathSet>::new();
         for i in path_list {
@@ -44,6 +44,8 @@ impl PathSets {
         }
         Self { list: tmp_list }
     }
+
+    // TODO: Integrate the logic for generating new paths, which is included in `check()` and `rename()` later.
     pub fn check(&self) -> Result<Vec<(String, String)>, Error> {
         let mut tmp = Vec::<(String, String)>::new();
         for i in &self.list {
@@ -68,9 +70,23 @@ impl PathSets {
         }
         Ok(tmp)
     }
-}
 
-// fn is_
+    pub fn rename(&self) {
+        for i in &self.list {
+            let tmp_line = fs::read_to_string(&i.line)
+                .unwrap()
+                .chars()
+                .take(20)
+                .collect::<String>()
+                .trim()
+                .to_string();
+
+            let new_audio_path = i.audio.with_file_name(tmp_line).with_extension("wav");
+
+            fs::rename(&i.audio, &new_audio_path).unwrap();
+        }
+    }
+}
 
 fn get_file_list<P: AsRef<Path>>(dir: P) -> Result<Vec<DirEntry>, Error> {
     let filtered_list: Vec<_> = fs::read_dir(dir)
@@ -133,7 +149,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(cud);
+        let a = PathSets::new(&cud);
         for i in a.list {
             println!("{:?}", i);
         }
@@ -146,9 +162,22 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(cud).check().unwrap();
+        let a = PathSets::new(&cud).check().unwrap();
         for i in a {
             println!("* {:width$} ---> {}", i.0, i.1, width = 20);
+        }
+    }
+
+    #[test]
+    fn test_rename() {
+        ready();
+        let cud = env::current_dir()
+            .unwrap()
+            .join("assets_for_test")
+            .join("assets");
+        PathSets::new(&cud).rename();
+        for i in fs::read_dir(cud).unwrap() {
+            println!("{:?}", i);
         }
     }
 }
