@@ -33,19 +33,31 @@ impl PathSets {
         for i in path_list {
             let path = i.path();
             // TODO: remove unwrap.
-            let text_path = match path.extension().unwrap().to_str().unwrap() {
+            let line_path = match path.extension().unwrap().to_str().unwrap() {
                 "wav" => path.with_extension("txt"),
                 _ => continue,
             };
-            if !text_path.exists() {
+            if !line_path.exists() {
                 panic!("line file is notfound!")
             }
-            tmp_list.push(PathSet::new(path, text_path));
+            tmp_list.push(PathSet::new(path, line_path));
         }
         Self { list: tmp_list }
     }
-    // pub fn check(&self, )
+    pub fn check(&self) -> Result<(String, String), Error> {
+        for i in &self.list {
+            let tmp_line = fs::read_to_string(&i.line)
+                .unwrap()
+                .chars()
+                .take(20)
+                .collect::<String>();
+            // let new_audio_name =
+        }
+        Ok(("".to_string(), "".to_string()))
+    }
 }
+
+// fn is_
 
 fn get_file_list<P: AsRef<Path>>(dir: P) -> Result<Vec<DirEntry>, Error> {
     let filtered_list: Vec<_> = fs::read_dir(dir)
@@ -70,37 +82,24 @@ mod tests {
         let p = env::current_dir().unwrap().to_path_buf();
         let windows_path = p.join("ready_test_files.ps1");
         let unix_path = p.join("ready_test_files.sh");
+
         if cfg!(target_os = "windows") {
-            if process::Command::new("powershell")
+            process::Command::new("powershell")
                 .args(["-NoExit", "-File", windows_path.to_str().unwrap()])
                 .status()
                 .unwrap()
                 .success()
-            {
-                println!("Ready!(windows)");
-                true
-            } else {
-                println!("Not ready!(windows)");
-                false
-            }
         } else {
-            if process::Command::new("sh")
+            process::Command::new("sh")
                 .args([unix_path.to_str().unwrap()])
                 .status()
                 .unwrap()
                 .success()
-            {
-                println!("Ready!(unix)");
-                true
-            } else {
-                println!("Not ready!(unix)");
-                false
-            }
         }
     }
 
     #[test]
-    fn a() {
+    fn test_ready_function_execution() {
         ready();
         println!(
             "{:?}",
@@ -115,7 +114,7 @@ mod tests {
     }
 
     #[test]
-    fn b() {
+    fn test_ready_and_list_assets() {
         ready();
         let cud = env::current_dir()
             .unwrap()
