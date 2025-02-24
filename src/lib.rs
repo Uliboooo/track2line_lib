@@ -1,7 +1,7 @@
 use std::{
     fs::{self, DirEntry},
     io,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug)]
@@ -9,15 +9,42 @@ pub enum Error {
     IoError(io::Error),
 }
 
-pub struct A<P: AsRef<Path>> {
-    audio: P,
-    line: P,
+#[derive(Debug)]
+struct PathSet {
+    audio: PathBuf,
+    line: PathBuf,
+}
+impl PathSet {
+    fn new<P: AsRef<Path>>(audio: P, line: P) -> Self {
+        Self {
+            audio: audio.as_ref().to_path_buf(),
+            line: line.as_ref().to_path_buf(),
+        }
+    }
 }
 
-impl<P: AsRef<Path>> A<P> {
-    pub fn new(dir: P) -> Self {
-        todo!()
+pub struct PathSets {
+    list: Vec<PathSet>,
+}
+impl PathSets {
+    pub fn new<P: AsRef<Path>>(dir: P) -> Self {
+        let path_list = get_file_list(dir).unwrap();
+        let mut tmp_list = Vec::<PathSet>::new();
+        for i in path_list {
+            let path = i.path();
+            // TODO: remove unwrap.
+            let text_path = match path.extension().unwrap().to_str().unwrap() {
+                "wav" => path.with_extension("txt"),
+                _ => continue,
+            };
+            if !text_path.exists() {
+                panic!("line file is notfound!")
+            }
+            tmp_list.push(PathSet::new(path, text_path));
+        }
+        Self { list: tmp_list }
     }
+    // pub fn check(&self, )
 }
 
 fn get_file_list<P: AsRef<Path>>(dir: P) -> Result<Vec<DirEntry>, Error> {
@@ -85,5 +112,18 @@ mod tests {
             )
             .unwrap()
         );
+    }
+
+    #[test]
+    fn b() {
+        ready();
+        let cud = env::current_dir()
+            .unwrap()
+            .join("assets_for_test")
+            .join("assets");
+        let a = PathSets::new(cud);
+        for i in a.list {
+            println!("{:?}", i);
+        }
     }
 }
