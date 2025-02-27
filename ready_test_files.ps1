@@ -8,3 +8,4 @@ New-Item -Path ".\assets_for_test\assets" -ItemType Directory
 
 Copy-Item -Path ".\assets_for_test\source\*" -Destination ".\assets_for_test\assets\" -Recurse
 Write-Output "created new assets"
+Write-Output "------------------------------"
