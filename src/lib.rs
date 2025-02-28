@@ -40,12 +40,6 @@ impl ListForCheck {
 impl fmt::Display for ListForCheck {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (old, new) in &self.0 {
-            // writeln!(f, "Audio: {}", old.as_ref().unwrap_or(&String::from("None")))?;
-            // writeln!(f, "Line: {}", new.as_ref().unwrap_or(&String::from("None")))?;
-            //         "* {:width$} ---> {:?}",
-            //         i.0.unwrap(),
-            //         i.1.unwrap(),
-            //         width = 20
             writeln!(
                 f,
                 "* {:width$} ---> {}",
@@ -104,37 +98,19 @@ impl PathSets {
                 })
                 .ok();
 
-            // let line = "renamed".to_string().push_str(tmp_line.map_or(""));
-
             // セリフファイルから読み込んだwavファイルのパスを生成する
-            // let new_audio_path = tmp_line.map(|p| i.audio.with_file_name(p).with_extension("wav"));
-            i.changed_audio =
-                tmp_line.map(|p| self.work_dir.join("renamed").join(p).with_extension("wav"));
+            i.changed_audio = tmp_line.map(|p| {
+                self.work_dir
+                    .join("renamed")
+                    .join(if p.is_empty() { "_" } else { &p })
+                    .with_extension("wav")
+            });
         }
     }
 
-    // pub type ListForCheck = Vec<(Option<String>, Option<String>)>;
-
-    // TODO: Integrate the logic for generating new paths, which is included in `check()` and `rename()` later.
+    /// Check if the audio files exist and if the new audio files exist.
     pub fn check(&self) -> Result<ListForCheck, Error> {
         let mut tmp = ListForCheck::new();
-        // for i in &self.list {
-        //     let tmp_line = fs::read_to_string(&i.line)
-        //         .map(|s| s.chars().take(20).collect::<String>().trim().to_string())
-        //         .ok();
-
-        //     let new_audio_path = tmp_line.map(|p| i.audio.with_file_name(p).with_extension("wav"));
-
-        //     tmp.push((
-        //         i.audio
-        //             .file_name()
-        //             .and_then(|f| Some(f.to_string_lossy().to_string())),
-        //         new_audio_path.and_then(|f| {
-        //             f.file_name()
-        //                 .and_then(|f| Some(f.to_string_lossy().to_string()))
-        //         }),
-        //     ));
-        // }
         for i in &self.list {
             tmp.0.push((
                 i.audio.file_name().map(|f| f.to_string_lossy().to_string()),
@@ -148,20 +124,14 @@ impl PathSets {
 
     pub fn rename(&mut self) -> Result<(), Error> {
         create_renamed_folder(&self.work_dir)?;
-        // self.ready_rename();
-        // for i in &self.list {
-        //     let tmp_line = match fs::read_to_string(&i.line) {
-        //         Ok(n) => n.chars().take(20).collect::<String>().trim().to_string(),
-        //         Err(_) => continue,
-        //     };
-
-        //     let new_audio_path = i.audio.with_file_name(tmp_line).with_extension("wav");
-
-        //     fs::rename(&i.audio, &new_audio_path).unwrap();
-        // }
-        for i in &self.list {
-            // let new = &i.changed_audio.unwrap();
-            fs::rename(&i.audio, i.changed_audio.as_ref().unwrap()).unwrap();
+        for i in &mut self.list {
+            let changed_audio = match i.changed_audio.as_ref() {
+                Some(v) => v,
+                None => continue,
+            };
+            if fs::rename(&i.audio, changed_audio).is_err() {
+                i.changed_audio = None
+            };
         }
         Ok(())
     }
@@ -256,14 +226,6 @@ mod tests {
             .join("assets");
         let a = PathSets::new(&cud).unwrap().check().unwrap();
         println!("{}", a);
-        // for i in a.0 {
-        //     println!(
-        //         "* {:width$} ---> {:?}",
-        //         i.0.unwrap(),
-        //         i.1.unwrap(),
-        //         width = 20
-        //     );
-        // }
     }
 
     #[test]
