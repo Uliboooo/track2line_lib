@@ -1,7 +1,7 @@
 # this script has not yet been verified to Normal operation.
 Write-Output "this script has not yet been verified to Normal operation."
 
-Remove-Item -Path ".\assets_for_test\assets" -Recurse -Force
+Remove-Item -Path ".\assets_for_test\assets" -Recurse -Force -ErrorAction SilentlyContinue
 Write-Output "removed old assets"
 
 New-Item -Path ".\assets_for_test\assets" -ItemType Directory

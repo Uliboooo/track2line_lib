@@ -176,7 +176,13 @@ mod tests {
 
         if cfg!(target_os = "windows") {
             process::Command::new("powershell")
-                .args(["-NoExit", "-File", windows_path.to_str().unwrap()])
+                .args([
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-NoExit",
+                    "-File",
+                    windows_path.to_str().unwrap(),
+                ])
                 .status()
                 .unwrap()
                 .success()
