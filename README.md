@@ -4,7 +4,7 @@
 
 ## known Issues
 
-- maybe don't work when empty line file is more than one file.
+- maybe don't work when empty line file is more than one file. https://github.com/Uliboooo/track2line_lib/issues/1
 
 ## description
 
