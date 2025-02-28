@@ -9,14 +9,3 @@
 ## description
 
 this is a library for converting track files to line files.
-
-## usage
-
-```rust:
-use track2line_lib::track2line;
-
-fn main() {
-
-    track2line(track_file, line_file);
-}
-```
