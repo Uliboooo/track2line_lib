@@ -28,6 +28,13 @@ impl PathSet {
         }
     }
 }
+impl fmt::Display for PathSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Audio: {}", self.audio.display())?;
+        writeln!(f, "Line: {}", self.line.display())?;
+        Ok(())
+    }
+}
 
 pub struct ListForCheck(Vec<(Option<String>, Option<String>)>);
 
@@ -55,19 +62,33 @@ impl fmt::Display for ListForCheck {
 pub struct PathSets {
     work_dir: PathBuf,
     list: Vec<PathSet>,
+    audio_extension: String,
+    // line_extension: String,
+}
+impl fmt::Display for PathSets {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for i in &self.list {
+            writeln!(f, "{}", i)?;
+        }
+        Ok(())
+    }
 }
 impl PathSets {
     /// Create a new instance of PathSets.
-    pub fn new<P: AsRef<Path>>(dir: &P) -> Result<Self, Error> {
-        let path_list = get_file_list(dir)?;
+    pub fn new<A: AsRef<Path>, S: AsRef<str>>(
+        dir: &A,
+        audio_extension: S,
+        line_extension: S,
+    ) -> Result<Self, Error> {
+        let path_list = get_file_list(dir, audio_extension.as_ref(), line_extension.as_ref())?;
         let mut tmp_list = Vec::<PathSet>::new();
         for i in path_list {
             let path = i.path();
             let line_path = match path
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .filter(|&ext| ext == "wav")
-                .map(|_| path.with_extension("txt"))
+                .filter(|&ext| ext == audio_extension.as_ref())
+                .map(|_| path.with_extension(line_extension.as_ref()))
             {
                 Some(v) => v,
                 None => continue,
@@ -80,6 +101,8 @@ impl PathSets {
         let mut new = PathSets {
             work_dir: dir.as_ref().to_path_buf(),
             list: tmp_list,
+            audio_extension: audio_extension.as_ref().to_string(),
+            // line_extension: line_extension.as_ref().to_string(),
         };
         new.ready_rename();
         Ok(new)
@@ -103,7 +126,7 @@ impl PathSets {
                 self.work_dir
                     .join("renamed")
                     .join(if p.is_empty() { "_" } else { &p })
-                    .with_extension("wav")
+                    .with_extension(&self.audio_extension) // default is wav
             });
         }
     }
@@ -137,13 +160,18 @@ impl PathSets {
     }
 }
 
-fn get_file_list<P: AsRef<Path>>(dir: P) -> Result<Vec<DirEntry>, Error> {
+fn get_file_list<P: AsRef<Path>>(
+    dir: P,
+    audio_ext: &str,
+    line_ext: &str,
+) -> Result<Vec<DirEntry>, Error> {
     let filtered_list: Vec<_> = fs::read_dir(dir)
         .map_err(Error::IoError)?
         .filter_map(|e| {
             e.ok().filter(|ee| {
                 ee.path().extension().is_some_and(|n| {
-                    n.to_str().is_some_and(|f| f == "wav") || n.to_str().is_some_and(|f| f == "txt")
+                    n.to_str().is_some_and(|f| f == audio_ext)
+                        || n.to_str().is_some_and(|f| f == line_ext)
                 })
             })
         })
@@ -204,7 +232,9 @@ mod tests {
                 env::current_dir()
                     .unwrap()
                     .join("assets_for_test")
-                    .join("assets")
+                    .join("assets"),
+                "wav",
+                "txt"
             )
             .unwrap()
         );
@@ -217,7 +247,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud).unwrap();
+        let a = PathSets::new(&cud, "wav", "txt").unwrap();
         for i in a.list {
             println!("{:?}", i);
         }
@@ -230,7 +260,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud).unwrap().check().unwrap();
+        let a = PathSets::new(&cud, "wav", "txt").unwrap().check().unwrap();
         println!("{}", a);
     }
 
@@ -241,7 +271,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        PathSets::new(&cud).unwrap().rename().unwrap();
+        PathSets::new(&cud, "wav", "txt").unwrap().rename().unwrap();
         for i in fs::read_dir(cud).unwrap() {
             println!("{:?}", i);
         }
@@ -254,7 +284,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let mut b = PathSets::new(&cud).unwrap();
+        let mut b = PathSets::new(&cud, "wav", "txt").unwrap();
         b.ready_rename();
         println!("{:?}", b.list);
     }
