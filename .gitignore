@@ -1,4 +1,6 @@
 /target
+!/target/doc/**
+#!/target/doc/**
 _*
 assets_for_test/assets
 tmp.json
