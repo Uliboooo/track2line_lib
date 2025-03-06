@@ -76,12 +76,12 @@ impl fmt::Display for PathSets {
 }
 impl PathSets {
     /// Create a new instance of PathSets.
-    pub fn new<A: AsRef<Path>, S: AsRef<str>>(
-        dir: &A,
+    pub fn new<P: AsRef<Path>, S: AsRef<str>>(
+        dir: P,
         audio_extension: S,
         line_extension: S,
     ) -> Result<Self, Error> {
-        let path_list = get_file_list(dir, audio_extension.as_ref(), line_extension.as_ref())?;
+        let path_list = get_file_list(&dir, audio_extension.as_ref(), line_extension.as_ref())?;
         let mut tmp_list = Vec::<PathSet>::new();
         for i in path_list {
             let path = i.path();
@@ -273,7 +273,7 @@ mod tests {
             .join("assets_for_test")
             .join("assets");
         PathSets::new(&cud, "wav", "txt").unwrap().rename().unwrap();
-        for i in fs::read_dir(cud).unwrap() {
+        for i in fs::read_dir(cud.join("renamed")).unwrap() {
             println!("{:?}", i);
         }
     }
