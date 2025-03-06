@@ -12,6 +12,16 @@ pub enum Error {
     FailedCreateRenamedFolder,
     NoParent,
 }
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::IoError(error) => writeln!(f, "{}", error),
+            Error::ExtensionError => writeln!(f, "extension error"),
+            Error::FailedCreateRenamedFolder => writeln!(f, "failed create renamed folder"),
+            Error::NoParent => writeln!(f, "no parent"),
+        }
+    }
+}
 
 #[derive(Debug)]
 struct PathSet {
