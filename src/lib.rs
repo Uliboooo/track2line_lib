@@ -59,6 +59,7 @@ impl fmt::Display for ListForCheck {
     }
 }
 
+#[derive(Debug)]
 pub struct PathSets {
     work_dir: PathBuf,
     list: Vec<PathSet>,
