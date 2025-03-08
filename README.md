@@ -8,6 +8,25 @@
 
 ## usage
 
+```toml:
+track2line_lib = { git = "https://github.com/Uliboooo/track2line_lib", tag = "0.3.0" }
+```
+
+```rust: usage
+use track2line_lib;
+
+fn main() {
+    let path = PathBuf::from("target_folder_path");
+    let mut sets = track2line_lib::PathSets::new(&path, "wav", "txt").unwrap();
+
+    // print list of path to be changed(not renamed yet)
+    println!("{}", sets.check().unwrap());
+
+    // rename
+    sets.rename().unwrap();
+}
+```
+
 https://github.com/Uliboooo/track2line
 
 ## description

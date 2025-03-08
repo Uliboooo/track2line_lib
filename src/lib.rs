@@ -85,7 +85,11 @@ impl fmt::Display for PathSets {
     }
 }
 impl PathSets {
-    /// Create a new instance of PathSets.
+    /// create a new instance of PathSets.
+    /// # Arguments
+    /// * `dir` - The directory where the audio and line files are located.
+    /// * `audio_extension` - The extension of the audio file.
+    /// * `line_extension` - The extension of the line file.
     pub fn new<P: AsRef<Path>, S: AsRef<str>>(
         dir: P,
         audio_extension: S,
@@ -142,7 +146,7 @@ impl PathSets {
         }
     }
 
-    /// Check if the audio files exist and if the new audio files exist.
+    /// return list of path to be changed(not renamed yet)
     pub fn check(&self) -> Result<ListForCheck, Error> {
         let mut tmp = ListForCheck::new();
         for i in &self.list {
@@ -156,6 +160,7 @@ impl PathSets {
         Ok(tmp)
     }
 
+    /// rename audio files
     pub fn rename(&mut self) -> Result<(), Error> {
         create_renamed_folder(&self.work_dir)?;
         for i in &mut self.list {
