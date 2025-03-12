@@ -94,25 +94,13 @@ impl PathSets {
         dir: P,
         audio_extension: S,
         line_extension: S,
+        use_recognition: bool,
     ) -> Result<Self, Error> {
         let path_list = get_file_list(&dir, audio_extension.as_ref(), line_extension.as_ref())?;
-        let mut tmp_list = Vec::<PathSet>::new();
-        for i in path_list {
-            let path = i.path();
-            let line_path = match path
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .filter(|&ext| ext == audio_extension.as_ref())
-                .map(|_| path.with_extension(line_extension.as_ref()))
-            {
-                Some(v) => v,
-                None => continue,
-            };
-            if !line_path.exists() {
-                panic!("line file is notfound!")
-            }
-            tmp_list.push(PathSet::new(path, line_path));
-        }
+        
+        
+        let tmp_list =
+            build_path_sets(path_list, audio_extension.as_ref(), line_extension.as_ref())?;
         let mut new = PathSets {
             work_dir: dir.as_ref().to_path_buf(),
             list: tmp_list,
@@ -176,6 +164,8 @@ impl PathSets {
     }
 }
 
+/// Get file list
+/// audio_extentionかline_extentionにかかるファイルのみのリスト
 fn get_file_list<P: AsRef<Path>>(
     dir: P,
     audio_ext: &str,
@@ -198,6 +188,32 @@ fn get_file_list<P: AsRef<Path>>(
 fn create_renamed_folder<P: AsRef<Path>>(dir: P) -> Result<(), Error> {
     fs::create_dir(dir.as_ref().join("renamed")).map_err(|_| Error::FailedCreateRenamedFolder)?;
     Ok(())
+}
+
+fn build_path_sets(
+    list: Vec<DirEntry>,
+    audio_ext: &str,
+    line_ext: &str,
+) -> Result<Vec<PathSet>, Error> {
+    let mut tmp_list = Vec::<PathSet>::new();
+
+    for i in list {
+        let path = i.path();
+        let line_path = match path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .filter(|&ext| ext == audio_ext)
+            .map(|_| path.with_extension(line_ext))
+        {
+            Some(v) => v,
+            None => continue,
+        };
+        if !line_path.exists() {
+            return Err(Error::NoParent); // あとで
+        }
+        tmp_list.push(PathSet::new(path, line_path));
+    }
+    Ok(tmp_list)
 }
 
 #[cfg(test)]
@@ -263,7 +279,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud, "wav", "txt").unwrap();
+        let a = PathSets::new(&cud, "wav", "txt", false).unwrap();
         for i in a.list {
             println!("{:?}", i);
         }
@@ -276,7 +292,10 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud, "wav", "txt").unwrap().check().unwrap();
+        let a = PathSets::new(&cud, "wav", "txt", false)
+            .unwrap()
+            .check()
+            .unwrap();
         println!("{}", a);
     }
 
@@ -287,7 +306,10 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        PathSets::new(&cud, "wav", "txt").unwrap().rename().unwrap();
+        PathSets::new(&cud, "wav", "txt", false)
+            .unwrap()
+            .rename()
+            .unwrap();
         for i in fs::read_dir(cud.join("renamed")).unwrap() {
             println!("{:?}", i);
         }
@@ -300,7 +322,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let mut b = PathSets::new(&cud, "wav", "txt").unwrap();
+        let mut b = PathSets::new(&cud, "wav", "txt", false).unwrap();
         b.ready_rename();
         println!("{:?}", b.list);
     }
