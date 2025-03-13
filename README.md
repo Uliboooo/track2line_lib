@@ -2,6 +2,11 @@
 
 **this lib version is 0.1.x**
 
+## tools
+
+- cli ver. https://github.com/Uliboooo/track2line
+- gui ver. https://github.com/Uliboooo/track2line_gui
+
 ## known Issues
 
 - maybe don't work when empty line file is more than one file. https://github.com/Uliboooo/track2line_lib/issues/1
@@ -26,8 +31,6 @@ fn main() {
     sets.rename().unwrap();
 }
 ```
-
-https://github.com/Uliboooo/track2line
 
 ## description
 
