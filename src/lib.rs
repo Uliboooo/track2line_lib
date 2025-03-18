@@ -1,6 +1,9 @@
+#[cfg(feature = "experimental")]
+mod transcription;
+
 use std::{
     fmt,
-    fs::{self, DirEntry},
+    fs::{self},
     io,
     path::{Path, PathBuf},
 };
@@ -25,23 +28,23 @@ impl fmt::Display for Error {
 
 #[derive(Debug)]
 struct PathSet {
-    audio: PathBuf,
-    changed_audio: Option<PathBuf>,
-    line: PathBuf,
+    audio_path: PathBuf,
+    changed_audio_path: Option<PathBuf>,
+    line: String,
 }
 impl PathSet {
-    fn new<P: AsRef<Path>>(audio: P, line: P) -> Self {
+    fn new<P: AsRef<Path>, S: AsRef<str>>(audio_path: P, line: S) -> Self {
         Self {
-            audio: audio.as_ref().to_path_buf(),
-            changed_audio: None,
-            line: line.as_ref().to_path_buf(),
+            audio_path: audio_path.as_ref().to_path_buf(),
+            changed_audio_path: None,
+            line: line.as_ref().to_string(),
         }
     }
 }
 impl fmt::Display for PathSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Audio: {}", self.audio.display())?;
-        writeln!(f, "Line: {}", self.line.display())?;
+        writeln!(f, "Audio: {}", self.audio_path.display())?;
+        writeln!(f, "Line: {}", self.line)?;
         Ok(())
     }
 }
@@ -57,10 +60,17 @@ impl ListForCheck {
 impl fmt::Display for ListForCheck {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (old, new) in &self.0 {
+            let oldd = &old
+                .as_ref()
+                .unwrap_or(&"None".to_string())
+                .chars()
+                .take(20)
+                .collect::<String>();
+
             writeln!(
                 f,
                 "* {:width$} ---> {}",
-                old.as_ref().unwrap_or(&"None".to_string()),
+                oldd,
                 new.as_ref().unwrap_or(&"None".to_string()),
                 width = 20
             )?;
@@ -90,59 +100,50 @@ impl PathSets {
     /// * `dir` - The directory where the audio and line files are located.
     /// * `audio_extension` - The extension of the audio file.
     /// * `line_extension` - The extension of the line file.
+    /// * `use_transcription` - **IT IS NOT WORKING PROPERLY** Whether to use transcription or not.when don't use feature "experimental", if you set true `ues_transcription`, it will be ignored for safety.
     pub fn new<P: AsRef<Path>, S: AsRef<str>>(
         dir: P,
         audio_extension: S,
         line_extension: S,
+        mut use_transcription: bool,
     ) -> Result<Self, Error> {
-        let path_list = get_file_list(&dir, audio_extension.as_ref(), line_extension.as_ref())?;
-        let mut tmp_list = Vec::<PathSet>::new();
-        for i in path_list {
-            let path = i.path();
-            let line_path = match path
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .filter(|&ext| ext == audio_extension.as_ref())
-                .map(|_| path.with_extension(line_extension.as_ref()))
-            {
-                Some(v) => v,
-                None => continue,
-            };
-            if !line_path.exists() {
-                panic!("line file is notfound!")
-            }
-            tmp_list.push(PathSet::new(path, line_path));
+        let filtered_path_list =
+            get_file_list(&dir, audio_extension.as_ref(), line_extension.as_ref())?;
+
+        if !cfg!(feature = "experimental") && use_transcription {
+            use_transcription = false;
         }
+
+        // lineの取得仕方のみここで分岐
+        let tmp_list = if use_transcription {
+            todo!() // TODO: Implement recognition logic
+        } else {
+            build_path_sets(
+                filtered_path_list,
+                audio_extension.as_ref(),
+                line_extension.as_ref(),
+            )?
+        };
+
         let mut new = PathSets {
             work_dir: dir.as_ref().to_path_buf(),
             list: tmp_list,
             audio_extension: audio_extension.as_ref().to_string(),
-            // line_extension: line_extension.as_ref().to_string(),
         };
         new.ready_rename();
         Ok(new)
     }
 
+    /// self.lineの内容を元にchanged_audio_pathをSome(path)に書き換え
     fn ready_rename(&mut self) {
         for i in &mut self.list {
-            let tmp_line = fs::read_to_string(&i.line)
-                .map(|file_content| {
-                    file_content
-                        .chars()
-                        .take(20)
-                        .collect::<String>()
-                        .trim()
-                        .to_string()
-                })
-                .ok();
-
-            // セリフファイルから読み込んだwavファイルのパスを生成する
-            i.changed_audio = tmp_line.map(|p| {
+            //build_path_sets()にてセリフが空の処理はしてあるためここでは不要
+            i.changed_audio_path = Some(
                 self.work_dir
                     .join("renamed")
-                    .join(if p.is_empty() { "_" } else { &p })
-                    .with_extension(&self.audio_extension) // default is wav
-            });
+                    .join(&i.line)
+                    .with_extension(&self.audio_extension),
+            );
         }
     }
 
@@ -151,8 +152,10 @@ impl PathSets {
         let mut tmp = ListForCheck::new();
         for i in &self.list {
             tmp.0.push((
-                i.audio.file_name().map(|f| f.to_string_lossy().to_string()),
-                i.changed_audio
+                i.audio_path
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string()),
+                i.changed_audio_path
                     .as_ref()
                     .and_then(|f| f.file_name().map(|f| f.to_string_lossy().to_string())),
             ));
@@ -164,40 +167,100 @@ impl PathSets {
     pub fn rename(&mut self) -> Result<(), Error> {
         create_renamed_folder(&self.work_dir)?;
         for i in &mut self.list {
-            let changed_audio = match i.changed_audio.as_ref() {
+            let changed_audio = match i.changed_audio_path.as_ref() {
                 Some(v) => v,
                 None => continue,
             };
-            if fs::rename(&i.audio, changed_audio).is_err() {
-                i.changed_audio = None
+            if fs::rename(&i.audio_path, changed_audio).is_err() {
+                i.changed_audio_path = None
             };
         }
         Ok(())
     }
 }
 
+/// Get file list
+/// audio_extentionかline_extentionにかかるファイルのみのリスト
 fn get_file_list<P: AsRef<Path>>(
     dir: P,
     audio_ext: &str,
     line_ext: &str,
-) -> Result<Vec<DirEntry>, Error> {
-    let filtered_list: Vec<_> = fs::read_dir(dir)
+) -> Result<Vec<PathBuf>, Error> {
+    Ok(fs::read_dir(&dir)
         .map_err(Error::IoError)?
-        .filter_map(|e| {
-            e.ok().filter(|ee| {
-                ee.path().extension().is_some_and(|n| {
-                    n.to_str().is_some_and(|f| f == audio_ext)
-                        || n.to_str().is_some_and(|f| f == line_ext)
-                })
-            })
+        .filter_map(|entry| entry.ok())
+        .map(|ok_entry| ok_entry.path())
+        .filter(|entry| {
+            entry.extension().unwrap() == audio_ext || entry.extension().unwrap() == line_ext
         })
-        .collect();
-    Ok(filtered_list)
+        .collect())
 }
 
 fn create_renamed_folder<P: AsRef<Path>>(dir: P) -> Result<(), Error> {
     fs::create_dir(dir.as_ref().join("renamed")).map_err(|_| Error::FailedCreateRenamedFolder)?;
     Ok(())
+}
+
+/// リスト中のオーディオファイルパスから、対応するテキストファイルからセリフを20文字にカットし、Vec<Pathset>として返す
+fn build_path_sets(
+    list: Vec<PathBuf>,
+    audio_ext: &str,
+    line_ext: &str,
+) -> Result<Vec<PathSet>, Error> {
+    let mut tmp_list = Vec::<PathSet>::new();
+    let mut empty_count = 0;
+
+    for path in list {
+        if path.extension().unwrap() == audio_ext {
+            // パスを探す
+            let text_path = path.with_extension(line_ext);
+
+            let mut empty = false;
+
+            let line = if text_path.exists() {
+                let tmp = fs::read_to_string(text_path)
+                    .map_err(Error::IoError)?
+                    .chars()
+                    .take(20)
+                    .collect::<String>()
+                    .trim()
+                    .to_string();
+                if tmp.is_empty() {
+                    // テキストファイルはあったが、セリフが空だった場合
+                    empty = true;
+                    format!("empty_{}", empty_count)
+                } else {
+                    // セリフがあった場合
+                    tmp
+                }
+            } else {
+                // テキストファイルがなかった場合
+                empty = true;
+                format!("empty_{}", empty_count)
+            };
+
+            if empty {
+                empty_count += 1;
+            }
+
+            // empty_countによって変更になる場合があるためmut
+            // let mut line = fs::read_to_string(text_path)
+            //     .map_err(Error::IoError)?
+            //     .chars()
+            //     .take(20)
+            //     .collect::<String>()
+            //     .trim()
+            //     .to_string();
+            // if line.is_empty() {
+            //     line = format!("empty_{}", empty_count);
+            //     empty_count += 1;
+            // }
+
+            let new_set = PathSet::new(path, line);
+            tmp_list.push(new_set);
+        }
+    }
+    Ok(tmp_list)
 }
 
 #[cfg(test)]
@@ -263,7 +326,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud, "wav", "txt").unwrap();
+        let a = PathSets::new(&cud, "wav", "txt", false).unwrap();
         for i in a.list {
             println!("{:?}", i);
         }
@@ -276,7 +339,10 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud, "wav", "txt").unwrap().check().unwrap();
+        let a = PathSets::new(&cud, "wav", "txt", false)
+            .unwrap()
+            .check()
+            .unwrap();
         println!("{}", a);
     }
 
@@ -287,7 +353,10 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        PathSets::new(&cud, "wav", "txt").unwrap().rename().unwrap();
+        PathSets::new(&cud, "wav", "txt", false)
+            .unwrap()
+            .rename()
+            .unwrap();
         for i in fs::read_dir(cud.join("renamed")).unwrap() {
             println!("{:?}", i);
         }
@@ -300,7 +369,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let mut b = PathSets::new(&cud, "wav", "txt").unwrap();
+        let mut b = PathSets::new(&cud, "wav", "txt", false).unwrap();
         b.ready_rename();
         println!("{:?}", b.list);
     }
