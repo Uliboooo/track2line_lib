@@ -2,6 +2,10 @@
 
 **this lib version is 0.1.x**
 
+## about transcription mod
+
+this is still doesn't work properly.therefore, if you use this, turn on "experimental" in feature flag.
+
 ## known Issues
 
 - maybe don't work when empty line file is more than one file. https://github.com/Uliboooo/track2line_lib/issues/1

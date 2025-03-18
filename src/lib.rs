@@ -1,6 +1,9 @@
+#[cfg(feature = "experimental")]
+mod transcription;
+
 use std::{
     fmt,
-    fs::{self, DirEntry},
+    fs::{self},
     io,
     path::{Path, PathBuf},
 };
@@ -57,10 +60,17 @@ impl ListForCheck {
 impl fmt::Display for ListForCheck {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (old, new) in &self.0 {
+            let oldd = &old
+                .as_ref()
+                .unwrap_or(&"None".to_string())
+                .chars()
+                .take(20)
+                .collect::<String>();
+
             writeln!(
                 f,
                 "* {:width$} ---> {}",
-                old.as_ref().unwrap_or(&"None".to_string()),
+                oldd,
                 new.as_ref().unwrap_or(&"None".to_string()),
                 width = 20
             )?;
@@ -90,18 +100,22 @@ impl PathSets {
     /// * `dir` - The directory where the audio and line files are located.
     /// * `audio_extension` - The extension of the audio file.
     /// * `line_extension` - The extension of the line file.
-    /// * `use_recognition` - Whether to use recognition or not.
+    /// * `use_transcription` - **IT IS NOT WORKING PROPERLY** Whether to use transcription or not.when don't use feature "experimental", if you set true `ues_transcription`, it will be ignored for safety.
     pub fn new<P: AsRef<Path>, S: AsRef<str>>(
         dir: P,
         audio_extension: S,
         line_extension: S,
-        use_recognition: bool,
+        mut use_transcription: bool,
     ) -> Result<Self, Error> {
         let filtered_path_list =
             get_file_list(&dir, audio_extension.as_ref(), line_extension.as_ref())?;
 
+        if !cfg!(feature = "experimental") && use_transcription {
+            use_transcription = false;
+        }
+
         // lineの取得仕方のみここで分岐
-        let tmp_list = if use_recognition {
+        let tmp_list = if use_transcription {
             todo!() // TODO: Implement recognition logic
         } else {
             build_path_sets(
@@ -201,18 +215,46 @@ fn build_path_sets(
             // パスを探す
             let text_path = path.with_extension(line_ext);
 
-            // empty_countによって変更になる場合があるためmut
-            let mut line = fs::read_to_string(text_path)
-                .map_err(Error::IoError)?
-                .chars()
-                .take(20)
-                .collect::<String>()
-                .trim()
-                .to_string();
-            if line.is_empty() {
-                line = format!("empty_{}", empty_count);
+            let mut empty = false;
+
+            let line = if text_path.exists() {
+                let tmp = fs::read_to_string(text_path)
+                    .map_err(Error::IoError)?
+                    .chars()
+                    .take(20)
+                    .collect::<String>()
+                    .trim()
+                    .to_string();
+                if tmp.is_empty() {
+                    // テキストファイルはあったが、セリフが空だった場合
+                    empty = true;
+                    format!("empty_{}", empty_count)
+                } else {
+                    // セリフがあった場合
+                    tmp
+                }
+            } else {
+                // テキストファイルがなかった場合
+                empty = true;
+                format!("empty_{}", empty_count)
+            };
+
+            if empty {
                 empty_count += 1;
             }
+
+            // empty_countによって変更になる場合があるためmut
+            // let mut line = fs::read_to_string(text_path)
+            //     .map_err(Error::IoError)?
+            //     .chars()
+            //     .take(20)
+            //     .collect::<String>()
+            //     .trim()
+            //     .to_string();
+            // if line.is_empty() {
+            //     line = format!("empty_{}", empty_count);
+            //     empty_count += 1;
+            // }
 
             let new_set = PathSet::new(path, line);
             tmp_list.push(new_set);
