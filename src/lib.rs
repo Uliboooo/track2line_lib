@@ -12,7 +12,7 @@ use std::{
 pub enum Error {
     IoError(io::Error),
     ExtensionError,
-    FailedCreateRenamedFolder,
+    FailedCreateRenamedFolder(io::Error),
     NoParent,
 }
 impl fmt::Display for Error {
@@ -20,7 +20,7 @@ impl fmt::Display for Error {
         match self {
             Error::IoError(error) => writeln!(f, "{}", error),
             Error::ExtensionError => writeln!(f, "extension error"),
-            Error::FailedCreateRenamedFolder => writeln!(f, "failed create renamed folder"),
+            Error::FailedCreateRenamedFolder(e) => writeln!(f, "failed create renamed folder{}", e),
             Error::NoParent => writeln!(f, "no parent"),
         }
     }
@@ -197,7 +197,7 @@ fn get_file_list<P: AsRef<Path>>(
 }
 
 fn create_renamed_folder<P: AsRef<Path>>(dir: P) -> Result<(), Error> {
-    fs::create_dir(dir.as_ref().join("renamed")).map_err(|_| Error::FailedCreateRenamedFolder)?;
+    fs::create_dir(dir.as_ref().join("renamed")).map_err(Error::FailedCreateRenamedFolder)?;
     Ok(())
 }
 
