@@ -1,6 +1,9 @@
 #[cfg(feature = "experimental")]
 mod transcription;
 
+#[cfg(feature = "config")]
+pub mod config;
+
 use std::{
     fmt,
     fs::{self},

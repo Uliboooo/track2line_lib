@@ -1,0 +1,1 @@
+touch assets_for_test/for_file_ctrl/test.txt

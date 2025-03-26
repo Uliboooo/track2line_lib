@@ -36,6 +36,28 @@ fn main() {
 }
 ```
 
+### use config (feature)
+
+Cargo.toml
+```toml
+[dependencies]
+track2line_lib = { git = "https://github.com/Uliboooo/track2line_lib", tag = "v0.8.0", features = ["config"]}
+```
+
+```rust
+use track2line_lib;
+
+// use default config(wav, txt)
+let default_config: Config = track2line_lib::config::Config::default();
+
+//save
+default_config.save()
+
+// load
+// もしconfigファイルがない場合、デフォルト設定でファイルを作成します
+let setting = track2line_lib::config::Config::load();
+```
+
 ## description
 
 this is a library for converting track files to line files.
