@@ -59,6 +59,11 @@ impl Config {
     pub fn set_txt_ext(&mut self, new_ext: &str) {
         self.txt_extension = new_ext.to_string();
     }
+
+    pub fn set_both(&mut self, new_audio_ext: &str, new_txt_ext: &str) {
+        self.set_audio_ext(new_audio_ext);
+        self.set_txt_ext(new_txt_ext);
+    }
 }
 
 /// osごとの設定ファイルパスを返す
