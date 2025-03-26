@@ -14,8 +14,8 @@ pub enum Error {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
-    audio_extension: String,
-    txt_extension: String,
+    pub audio_extension: String,
+    pub txt_extension: String,
 }
 impl Default for Config {
     /// "wav"と"txt"で初期化
