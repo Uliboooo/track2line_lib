@@ -3,10 +3,14 @@ use std::{fs, io::BufReader, path::Path};
 use whisper_rs::{self, WhisperContext, WhisperContextParameters};
 
 /// langがNoneの場合は"ja"になります。
-/// 
-/// この関数は正しい結果を返さないため、実験的な機能です。this func is experimental.
+/// 指定された音声ファイルを音声認識し、テキストに変換します。
+/// この関数は正しい結果を返さないため、実験的な機能です。
 #[cfg(feature = "experimental")]
-pub fn transcription<P: AsRef<Path>>(model_path: P, audio_path: P, lang: Option<&str>) -> Vec<String> {
+pub fn transcription<MP: AsRef<Path>, AP: AsRef<Path>>(
+    model_path: MP,
+    audio_path: AP,
+    lang: Option<&str>,
+) -> String {
     let ctx = WhisperContext::new_with_params(
         model_path.as_ref().to_str().unwrap(),
         WhisperContextParameters::default(),
@@ -38,7 +42,7 @@ pub fn transcription<P: AsRef<Path>>(model_path: P, audio_path: P, lang: Option<
     state.full(params, &mono_data).unwrap();
 
     let num_segments = state.full_n_segments().unwrap();
-    
+
     let mut sc = Vec::new();
 
     for i in 0..num_segments {
@@ -48,9 +52,16 @@ pub fn transcription<P: AsRef<Path>>(model_path: P, audio_path: P, lang: Option<
         // println!("[{} - {}]: {}", start_time, end_time, segment);
         sc.push(state.full_get_segment_text(i).unwrap());
     }
-    
-    sc
+
+    concat_vec_to_string(sc)
     // println!("{:?}", state);
+}
+
+fn concat_vec_to_string(list: Vec<String>) -> String {
+    let mut tmp = String::new();
+    list.iter().for_each(|f| tmp.push_str(f));
+
+    tmp
 }
 
 // #[cfg(test)]

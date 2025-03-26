@@ -33,6 +33,7 @@ struct PathSet {
     line: String,
 }
 impl PathSet {
+    /// init時に変更後の`changed_audio_path`が取得できることはないため引数は以下のみ
     fn new<P: AsRef<Path>, S: AsRef<str>>(audio_path: P, line: S) -> Self {
         Self {
             audio_path: audio_path.as_ref().to_path_buf(),
@@ -100,34 +101,51 @@ impl PathSets {
     /// * `dir` - The directory where the audio and line files are located.
     /// * `audio_extension` - The extension of the audio file.
     /// * `line_extension` - The extension of the line file.
-    /// * `use_transcription` - **IT IS NOT WORKING PROPERLY** Whether to use transcription or not.when don't use feature "experimental", if you set true `ues_transcription`, it will be ignored for safety.
     pub fn new<P: AsRef<Path>, S: AsRef<str>>(
         dir: P,
         audio_extension: S,
         line_extension: S,
-        mut use_transcription: bool,
     ) -> Result<Self, Error> {
         let filtered_path_list =
             get_file_list(&dir, audio_extension.as_ref(), line_extension.as_ref())?;
 
-        if !cfg!(feature = "experimental") && use_transcription {
-            use_transcription = false;
-        }
-
-        // lineの取得仕方のみここで分岐
-        let tmp_list = if use_transcription {
-            todo!() // TODO: Implement recognition logic
-        } else {
-            build_path_sets(
-                filtered_path_list,
-                audio_extension.as_ref(),
-                line_extension.as_ref(),
-            )?
-        };
+        let tmp_list = build_path_sets(
+            filtered_path_list,
+            audio_extension.as_ref(),
+            line_extension.as_ref(),
+        )?;
 
         let mut new = PathSets {
             work_dir: dir.as_ref().to_path_buf(),
             list: tmp_list,
+            audio_extension: audio_extension.as_ref().to_string(),
+        };
+        new.ready_rename();
+        Ok(new)
+    }
+
+    /// この関数はまだ正常に動作しません
+    #[cfg(feature = "experimental")]
+    pub fn new_transcription<P: AsRef<Path>, S: AsRef<str>>(
+        dir: P,
+        audio_extension: S,
+        line_extension: S,
+    ) -> Result<Self, Error> {
+        let filtered_path_list =
+            get_file_list(&dir, audio_extension.as_ref(), line_extension.as_ref())?;
+
+        let path_set_list = filtered_path_list
+            .iter()
+            .filter(|f| f.extension().unwrap().to_str() == Some(audio_extension.as_ref()))
+            .map(|audio_path| {
+                let line = transcription::transcription("model_path", audio_path, Some("ja"));
+                PathSet::new(audio_path, line)
+            })
+            .collect();
+
+        let mut new = PathSets {
+            work_dir: dir.as_ref().to_path_buf(),
+            list: path_set_list,
             audio_extension: audio_extension.as_ref().to_string(),
         };
         new.ready_rename();
@@ -326,7 +344,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud, "wav", "txt", false).unwrap();
+        let a = PathSets::new(&cud, "wav", "txt").unwrap();
         for i in a.list {
             println!("{:?}", i);
         }
@@ -339,10 +357,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let a = PathSets::new(&cud, "wav", "txt", false)
-            .unwrap()
-            .check()
-            .unwrap();
+        let a = PathSets::new(&cud, "wav", "txt").unwrap().check().unwrap();
         println!("{}", a);
     }
 
@@ -353,10 +368,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        PathSets::new(&cud, "wav", "txt", false)
-            .unwrap()
-            .rename()
-            .unwrap();
+        PathSets::new(&cud, "wav", "txt").unwrap().rename().unwrap();
         for i in fs::read_dir(cud.join("renamed")).unwrap() {
             println!("{:?}", i);
         }
@@ -369,7 +381,7 @@ mod tests {
             .unwrap()
             .join("assets_for_test")
             .join("assets");
-        let mut b = PathSets::new(&cud, "wav", "txt", false).unwrap();
+        let mut b = PathSets::new(&cud, "wav", "txt").unwrap();
         b.ready_rename();
         println!("{:?}", b.list);
     }
