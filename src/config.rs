@@ -2,7 +2,7 @@ mod file_ctrl;
 
 use home::{self};
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::PathBuf};
+use std::{fmt, fs, io, path::PathBuf};
 
 #[derive(Debug)]
 pub enum Error {
@@ -10,6 +10,16 @@ pub enum Error {
     IoErr(io::Error),
     FailedToString,
     FailedSave,
+}
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::FailedGetHome => writeln!(f, "failed get home dir"),
+            Error::IoErr(error) => writeln!(f, "io error: {}", error),
+            Error::FailedToString => writeln!(f, "failed convert to string from Config struct"),
+            Error::FailedSave => writeln!(f, "failed save Config"),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
