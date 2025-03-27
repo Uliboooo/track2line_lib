@@ -2,7 +2,10 @@ mod file_ctrl;
 
 use home::{self};
 use serde::{Deserialize, Serialize};
-use std::{fmt, fs, io, path::PathBuf};
+use std::{
+    fmt, fs, io,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -44,9 +47,9 @@ impl Config {
         })
     }
 
-    /// configファイルがない場合、デフォルト設定で作成
+    /// configファイルがない or 空の場合、デフォルト設定で作成
     pub fn load() -> Result<Self, Error> {
-        if !get_config_path()?.exists() {
+        if file_is_empty(get_config_path()?)? || !get_config_path()?.exists() {
             let default_c = Config::default();
             default_c.save()?;
         }
@@ -73,6 +76,20 @@ impl Config {
     pub fn set_both(&mut self, new_audio_ext: &str, new_txt_ext: &str) {
         self.set_audio_ext(new_audio_ext);
         self.set_txt_ext(new_txt_ext);
+    }
+}
+
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let content = format!(
+            "audio extension: {}\ntxt extension: {}\nthese config saved on {}",
+            self.audio_extension,
+            self.txt_extension,
+            get_config_path()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or("config file not found.".to_string())
+        );
+        writeln!(f, "{}", content)
     }
 }
 
@@ -104,6 +121,11 @@ fn get_config_path() -> Result<PathBuf, Error> {
     Ok(config_folder.join("config.toml"))
 }
 
+fn file_is_empty<P: AsRef<Path>>(path: P) -> Result<bool, Error> {
+    let content = fs::read_to_string(path).map_err(Error::IoErr)?;
+    Ok(content.is_empty())
+}
+
 /// 普通にユーザディレクトリ以降に/track2line用の設定ファイルを作るため注意
 #[cfg(test)]
 mod tests {
@@ -131,5 +153,11 @@ mod tests {
         println!("{:?}", get_config_path());
         let loaded_config = Config::load().unwrap();
         println!("{:?}", loaded_config);
+    }
+
+    #[test]
+    fn show_test() {
+        let loaded_config = Config::load().unwrap();
+        println!("{}", loaded_config)
     }
 }
