@@ -2,6 +2,8 @@
 name = "track2line_lib"
 version = "0.10.0"
 edition = "2021"
+license = "MIT"
+description = "It is a lib that converts the name of the audio file output by voisona Talk, etc. by referring to a text file containing the lines of the same name."
 
 [features]
 config = []
