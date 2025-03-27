@@ -170,9 +170,9 @@ impl PathSets {
 
     /// return list of path to be changed(not renamed yet)
     pub fn check(&self) -> Result<ListForCheck, Error> {
-        let mut tmp = ListForCheck::new();
+        let mut list_for_check = ListForCheck::new();
         for i in &self.list {
-            tmp.0.push((
+            list_for_check.0.push((
                 i.audio_path
                     .file_name()
                     .map(|f| f.to_string_lossy().to_string()),
@@ -181,7 +181,7 @@ impl PathSets {
                     .and_then(|f| f.file_name().map(|f| f.to_string_lossy().to_string())),
             ));
         }
-        Ok(tmp)
+        Ok(list_for_check)
     }
 
     /// rename audio files
@@ -212,7 +212,9 @@ fn get_file_list<P: AsRef<Path>>(
         .filter_map(|entry| entry.ok())
         .map(|ok_entry| ok_entry.path())
         .filter(|entry| {
-            entry.extension().unwrap() == audio_ext || entry.extension().unwrap() == line_ext
+            entry
+                .extension()
+                .is_some_and(|ext| ext == audio_ext || ext == line_ext)
         })
         .collect())
 }
@@ -232,7 +234,11 @@ fn build_path_sets(
     let mut empty_count = 0;
 
     for path in list {
-        if path.extension().unwrap() == audio_ext {
+        if match path.extension() {
+            Some(v) => v,
+            None => continue,
+        } == audio_ext
+        {
             // パスを探す
             let text_path = path.with_extension(line_ext);
 
@@ -263,19 +269,6 @@ fn build_path_sets(
             if empty {
                 empty_count += 1;
             }
-
-            // empty_countによって変更になる場合があるためmut
-            // let mut line = fs::read_to_string(text_path)
-            //     .map_err(Error::IoError)?
-            //     .chars()
-            //     .take(20)
-            //     .collect::<String>()
-            //     .trim()
-            //     .to_string();
-            // if line.is_empty() {
-            //     line = format!("empty_{}", empty_count);
-            //     empty_count += 1;
-            // }
 
             let new_set = PathSet::new(path, line);
             tmp_list.push(new_set);
